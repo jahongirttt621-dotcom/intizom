@@ -1,9 +1,8 @@
-// Backend API manzili — o'zingiznikiga o'zgartiring (VPS yoki tunnel URL).
+// Backend API manzili
 const API_BASE = "https://intizom-bi0n.onrender.com";
 
 const tg = window.Telegram?.WebApp;
 
-// Har so'rovga Telegram initData'ni header sifatida qo'shamiz — server tekshiradi.
 async function apiRequest(path, method = "GET", body = null) {
   const headers = {
     "Content-Type": "application/json",
