@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Intizom</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- YUKLANISH -->
+    <div id="screen-loading" class="fullscreen">
+      <div class="loader">Yuklanmoqda…</div>
+    </div>
+
+    <!-- RO'YXATDAN O'TISH -->
+    <div id="screen-register" class="fullscreen" hidden>
+      <div class="reg-box">
+        <div class="reg-logo">◈</div>
+        <h1 class="reg-title">INTIZOM</h1>
+        <p class="reg-sub">Kirish uchun ro'yxatdan o'ting. Admin arizangizni ko'rib chiqadi.</p>
+        <label class="field-label">Ism familiya</label>
+        <input id="regName" class="field" type="text" placeholder="Masalan: Jahongir Aliyev" autocomplete="name" />
+        <label class="field-label">Telefon raqam</label>
+        <input id="regPhone" class="field" type="tel" placeholder="+998 90 123 45 67" autocomplete="tel" />
+        <button id="regSubmit" class="btn-primary">Ariza yuborish</button>
+        <div id="regError" class="field-error" hidden></div>
+      </div>
+    </div>
+
+    <!-- KUTISH -->
+    <div id="screen-pending" class="fullscreen" hidden>
+      <div class="status-box">
+        <div class="status-icon pending">⏳</div>
+        <h2>Ariza yuborildi</h2>
+        <p>Admin tasdig'ini kutmoqdasiz. Tasdiqlangach ilova ochiladi.</p>
+        <button id="pendingRefresh" class="btn-ghost">Holatni yangilash</button>
+      </div>
+    </div>
+
+    <!-- RAD ETILGAN -->
+    <div id="screen-rejected" class="fullscreen" hidden>
+      <div class="status-box">
+        <div class="status-icon rejected">✕</div>
+        <h2>Ariza rad etildi</h2>
+        <p>Afsuski, arizangiz qabul qilinmadi. Admin bilan bog'laning.</p>
+      </div>
+    </div>
+
+    <!-- ASOSIY ILOVA -->
+    <div id="screen-main" hidden>
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">◈</span>
+          <span class="brand-name">INTIZOM</span>
+        </div>
+        <div class="score-chip" id="totalPoints">— ball</div>
+      </header>
+
+      <nav class="tabs" id="mainTabs">
+        <button class="tab active" data-tab="home">Bosh</button>
+        <button class="tab" data-tab="challenges">Challenge</button>
+        <button class="tab" data-tab="board">Reyting</button>
+        <button class="tab" data-tab="admin" id="adminTab" hidden>Admin</button>
+      </nav>
+
+      <main class="content">
+        <section class="view active" id="view-home">
+          <div id="myChallenges"></div>
+          <div class="empty" id="homeEmpty" hidden>
+            <div class="empty-icon">◇</div>
+            <p>Hali challenge tanlamagansiz.</p>
+            <button class="btn-ghost" data-goto="challenges">Challenge tanlash</button>
+          </div>
+        </section>
+
+        <section class="view" id="view-challenges">
+          <p class="section-hint">Challenge tanlang va har kuni belgilang.</p>
+          <div id="challengeList"></div>
+        </section>
+
+        <section class="view" id="view-board">
+          <div class="board-picker" id="boardPicker"></div>
+          <div id="leaderboard"></div>
+        </section>
+
+        <section class="view" id="view-admin">
+          <p class="section-hint">Kutayotgan arizalar. Tasdiqlang yoki rad eting.</p>
+          <div id="adminList"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
