@@ -1,285 +1,385 @@
-// ---------- Telegram init ----------
-const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
-  tg.setHeaderColor?.("#0e0d1a");
-  tg.setBackgroundColor?.("#0e0d1a");
+:root {
+  /* Palitra: chuqur indigo asos + olov (streak) accent */
+  --bg: #0e0d1a;
+  --surface: #191830;
+  --surface-2: #221f3d;
+  --line: #302c52;
+  --text: #f2f0ff;
+  --text-dim: #9a95c4;
+  --flame: #ff7a18;
+  --flame-2: #ffb020;
+  --gold: #ffd34d;
+  --ok: #35d07f;
+  --me: #6c5ce7;
+
+  --r: 16px;
+  --r-sm: 11px;
 }
 
-// ---------- State ----------
-let state = {
-  me: null,
-  challenges: [],
-  joinedIds: new Set(),
-  boardChallengeId: null,
-  isAdmin: false,
-};
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-// ---------- Helpers ----------
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
+/* hidden atributi har doim yashiradi (fullscreen flex ustidan ustun) */
+[hidden] { display: none !important; }
 
-function toast(msg) {
-  const t = $("#toast");
-  t.textContent = msg;
-  t.hidden = false;
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => (t.hidden = true), 2200);
-}
-function haptic(type = "medium") { tg?.HapticFeedback?.impactOccurred?.(type); }
-function initials(name) { return (name || "?").trim().charAt(0).toUpperCase(); }
-function escapeHtml(s) {
-  return String(s || "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
 }
 
-// ---------- Ekran boshqaruvi ----------
-function showScreen(id) {
-  ["loading", "register", "pending", "rejected", "main"].forEach((s) => {
-    $(`#screen-${s}`).hidden = s !== id;
-  });
+#app {
+  max-width: 520px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-// ---------- Boshlang'ich yuklash ----------
-async function boot() {
-  showScreen("loading");
-  try {
-    state.me = await API.me();
-  } catch (e) {
-    toast("Ulanishda xato: " + e.message);
-    return;
-  }
-
-  const status = state.me.user.status;
-  state.isAdmin = state.me.user.is_admin;
-
-  // Admin har doim ichkariga kiradi (ro'yxatdan o'tmasa ham)
-  if (state.isAdmin) {
-    await enterMain();
-    return;
-  }
-
-  if (status === "new") showScreen("register");
-  else if (status === "pending") showScreen("pending");
-  else if (status === "rejected") showScreen("rejected");
-  else if (status === "approved") await enterMain();
+/* ---------- Topbar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 18px 12px;
+}
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand-mark {
+  font-size: 20px;
+  color: var(--flame);
+}
+.brand-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  letter-spacing: 3px;
+  font-size: 16px;
+}
+.score-chip {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--flame), var(--flame-2));
+  color: #1a0f00;
 }
 
-// ---------- Ro'yxatdan o'tish ----------
-$("#regSubmit").addEventListener("click", async () => {
-  const name = $("#regName").value.trim();
-  const phone = $("#regPhone").value.trim();
-  const errBox = $("#regError");
-  errBox.hidden = true;
-
-  if (name.length < 3) { errBox.textContent = "Ismni to'liq kiriting"; errBox.hidden = false; return; }
-  if (phone.length < 7) { errBox.textContent = "Telefon raqamni to'g'ri kiriting"; errBox.hidden = false; return; }
-
-  const btn = $("#regSubmit");
-  btn.disabled = true;
-  btn.textContent = "Yuborilmoqda…";
-  try {
-    await API.register(name, phone);
-    haptic("light");
-    showScreen("pending");
-  } catch (e) {
-    errBox.textContent = e.message;
-    errBox.hidden = false;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Ariza yuborish";
-  }
-});
-
-// Kutish ekranida holatni yangilash
-$("#pendingRefresh").addEventListener("click", async () => {
-  try {
-    state.me = await API.me();
-    const s = state.me.user.status;
-    if (s === "approved") { toast("Tasdiqlandingiz!"); await enterMain(); }
-    else if (s === "rejected") showScreen("rejected");
-    else toast("Hali kutilmoqda…");
-  } catch (e) { toast(e.message); }
-});
-
-// ---------- Asosiy ilovaga kirish ----------
-async function enterMain() {
-  showScreen("main");
-  $("#totalPoints").textContent = `${state.me.total_points} ball`;
-  state.joinedIds = new Set(state.me.participations.map((p) => p.challenge_id));
-
-  if (state.isAdmin) $("#adminTab").hidden = false;
-
-  try {
-    state.challenges = await API.challenges();
-  } catch (e) {
-    // admin approved emas bo'lishi mumkin emas, lekin himoya uchun
-    state.challenges = [];
-  }
-  renderHome();
-  renderChallenges();
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px 18px 14px;
+}
+.tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .18s;
+}
+.tab.active {
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1.5px var(--me);
 }
 
-// ---------- Tab switching ----------
-$$(".tab").forEach((btn) => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
-document.addEventListener("click", (e) => {
-  const goto = e.target.dataset?.goto;
-  if (goto) switchTab(goto);
-});
-function switchTab(tab) {
-  $$(".tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
-  $$(".view").forEach((v) => v.classList.toggle("active", v.id === `view-${tab}`));
-  if (tab === "board") renderBoard();
-  if (tab === "admin") renderAdmin();
+/* ---------- Content ---------- */
+.content { flex: 1; padding: 4px 18px 40px; }
+.view { display: none; animation: fade .25s ease; }
+.view.active { display: block; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.section-hint { color: var(--text-dim); font-size: 13px; margin-bottom: 14px; }
+
+/* ---------- My challenge kartasi ---------- */
+.mycard {
+  background: var(--surface);
+  border-radius: var(--r);
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+}
+.mycard-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.mycard-emoji { font-size: 26px; }
+.mycard-title { font-weight: 600; font-size: 15px; }
+.mycard-sub { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+
+.streak-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.stat {
+  flex: 1;
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  text-align: center;
+}
+.stat-val {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1;
+}
+.stat-val.flame { color: var(--flame-2); }
+.stat-label { color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px; }
+
+.btn-checkin {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: var(--r-sm);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: transform .12s;
+  background: linear-gradient(135deg, var(--flame), var(--flame-2));
+  color: #1a0f00;
+}
+.btn-checkin:active { transform: scale(.97); }
+.btn-checkin.done {
+  background: var(--surface-2);
+  color: var(--ok);
+  box-shadow: inset 0 0 0 1.5px var(--ok);
+  cursor: default;
 }
 
-// ---------- Home ----------
-function renderHome() {
-  const box = $("#myChallenges");
-  const empty = $("#homeEmpty");
-  const mine = state.me?.participations || [];
-  if (mine.length === 0) { box.innerHTML = ""; empty.hidden = false; return; }
-  empty.hidden = true;
-  box.innerHTML = mine.map((p) => `
-    <div class="mycard">
-      <div class="mycard-top">
-        <div class="mycard-emoji">${p.emoji}</div>
-        <div>
-          <div class="mycard-title">${escapeHtml(p.challenge_title)}</div>
-          <div class="mycard-sub">Jami ${p.total_checkins} kun bajarilgan</div>
-        </div>
-      </div>
-      <div class="streak-row">
-        <div class="stat"><div class="stat-val flame">${p.current_streak}</div><div class="stat-label">Streak</div></div>
-        <div class="stat"><div class="stat-val">${p.best_streak}</div><div class="stat-label">Rekord</div></div>
-        <div class="stat"><div class="stat-val">${p.points}</div><div class="stat-label">Ball</div></div>
-      </div>
-      <button class="btn-checkin ${p.checked_today ? "done" : ""}" data-checkin="${p.challenge_id}" ${p.checked_today ? "disabled" : ""}>
-        ${p.checked_today ? "✅ Bugun bajarildi" : "🔥 Bugun bajardim"}
-      </button>
-    </div>`).join("");
-  box.querySelectorAll("[data-checkin]").forEach((btn) =>
-    btn.addEventListener("click", () => doCheckin(Number(btn.dataset.checkin))));
+/* ---------- Challenge katalog ---------- */
+.chcard {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 14px;
+  margin-bottom: 10px;
+}
+.chcard-emoji { font-size: 26px; }
+.chcard-body { flex: 1; min-width: 0; }
+.chcard-title { font-weight: 600; font-size: 14px; }
+.chcard-desc { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+.btn-join {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 999px;
+  background: var(--me);
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-join.joined { background: var(--surface-2); color: var(--text-dim); }
+
+/* ---------- Leaderboard ---------- */
+.board-picker { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 6px; }
+.board-picker::-webkit-scrollbar { display: none; }
+.bp-chip {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bp-chip.active { background: var(--me); color: #fff; }
+
+.lrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: var(--r-sm);
+  margin-bottom: 7px;
+  background: var(--surface);
+}
+.lrow.me { box-shadow: inset 0 0 0 1.5px var(--me); background: var(--surface-2); }
+.lrank {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  width: 26px;
+  text-align: center;
+  color: var(--text-dim);
+}
+.lrow.top .lrank { color: var(--gold); font-size: 17px; }
+.lavatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--surface-2);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 14px;
+  overflow: hidden; flex: 0 0 auto;
+}
+.lavatar img { width: 100%; height: 100%; object-fit: cover; }
+.lname { flex: 1; font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lstreak { color: var(--flame-2); font-size: 12px; font-weight: 600; }
+.lpoints { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; min-width: 44px; text-align: right; }
+
+/* ---------- Empty / toast ---------- */
+.empty { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+.empty-icon { font-size: 40px; margin-bottom: 12px; opacity: .5; }
+.btn-ghost {
+  margin-top: 16px; padding: 11px 20px;
+  border: 1.5px solid var(--me); background: transparent; color: var(--text);
+  border-radius: var(--r-sm); font-weight: 600; cursor: pointer;
 }
 
-// ---------- Challenges ----------
-function renderChallenges() {
-  const list = $("#challengeList");
-  list.innerHTML = state.challenges.map((c) => {
-    const joined = state.joinedIds.has(c.id);
-    return `
-      <div class="chcard">
-        <div class="chcard-emoji">${c.emoji}</div>
-        <div class="chcard-body">
-          <div class="chcard-title">${escapeHtml(c.title)}</div>
-          <div class="chcard-desc">${escapeHtml(c.description || "")} · ${c.duration_days} kun</div>
-        </div>
-        <button class="btn-join ${joined ? "joined" : ""}" data-join="${c.id}" ${joined ? "disabled" : ""}>
-          ${joined ? "Qo'shilgan" : "Qo'shilish"}
-        </button>
-      </div>`;
-  }).join("");
-  list.querySelectorAll("[data-join]").forEach((btn) =>
-    btn.addEventListener("click", () => joinChallenge(Number(btn.dataset.join))));
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  background: var(--surface-2); color: var(--text);
+  padding: 12px 20px; border-radius: 999px; font-size: 14px; font-weight: 500;
+  box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  border: 1px solid var(--line);
+  z-index: 100; animation: toastIn .25s;
+}
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+.skeleton { color: var(--text-dim); text-align: center; padding: 40px; font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
 }
 
-// ---------- Leaderboard ----------
-function renderBoardPicker() {
-  const picker = $("#boardPicker");
-  if (state.challenges.length === 0) return;
-  if (!state.boardChallengeId) state.boardChallengeId = state.challenges[0].id;
-  picker.innerHTML = state.challenges.map((c) =>
-    `<button class="bp-chip ${c.id === state.boardChallengeId ? "active" : ""}" data-board="${c.id}">${c.emoji} ${escapeHtml(c.title)}</button>`
-  ).join("");
-  picker.querySelectorAll("[data-board]").forEach((btn) =>
-    btn.addEventListener("click", () => {
-      state.boardChallengeId = Number(btn.dataset.board);
-      renderBoardPicker(); renderBoard();
-    }));
+/* ============ Ekranlar (register / pending / admin) ============ */
+.fullscreen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
 }
-async function renderBoard() {
-  renderBoardPicker();
-  const box = $("#leaderboard");
-  box.innerHTML = `<div class="skeleton">Yuklanmoqda…</div>`;
-  try {
-    const rows = await API.leaderboard(state.boardChallengeId);
-    if (rows.length === 0) { box.innerHTML = `<div class="skeleton">Hali ishtirokchi yo'q.</div>`; return; }
-    box.innerHTML = rows.map((r) => {
-      const top = r.rank <= 3;
-      const medal = r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : r.rank === 3 ? "🥉" : r.rank;
-      const avatar = r.photo_url ? `<img src="${r.photo_url}" alt="">` : initials(r.name);
-      return `
-        <div class="lrow ${r.is_me ? "me" : ""} ${top ? "top" : ""}">
-          <div class="lrank">${medal}</div>
-          <div class="lavatar">${avatar}</div>
-          <div class="lname">${escapeHtml(r.name)}${r.is_me ? " (siz)" : ""}</div>
-          <div class="lstreak">🔥${r.current_streak}</div>
-          <div class="lpoints">${r.points}</div>
-        </div>`;
-    }).join("");
-  } catch (e) { box.innerHTML = `<div class="skeleton">Xatolik: ${escapeHtml(e.message)}</div>`; }
+.loader { color: var(--text-dim); font-size: 15px; }
+
+/* Ro'yxatdan o'tish */
+.reg-box {
+  width: 100%;
+  max-width: 380px;
+  animation: fade .3s ease;
+}
+.reg-logo { font-size: 40px; color: var(--flame); text-align: center; }
+.reg-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  letter-spacing: 5px;
+  text-align: center;
+  font-size: 24px;
+  margin: 10px 0 6px;
+}
+.reg-sub {
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 26px;
+  line-height: 1.5;
+}
+.field-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 14px 0 6px;
+  font-weight: 500;
+}
+.field {
+  width: 100%;
+  padding: 13px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: 15px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  transition: border-color .15s;
+}
+.field:focus { border-color: var(--me); }
+.field::placeholder { color: #5a5580; }
+.btn-primary {
+  width: 100%;
+  margin-top: 22px;
+  padding: 14px;
+  border: none;
+  border-radius: var(--r-sm);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--flame), var(--flame-2));
+  color: #1a0f00;
+  transition: transform .12s;
+}
+.btn-primary:active { transform: scale(.98); }
+.btn-primary:disabled { opacity: .6; cursor: default; }
+.field-error {
+  margin-top: 12px;
+  color: #ff6b6b;
+  font-size: 13px;
+  text-align: center;
 }
 
-// ---------- Admin ----------
-async function renderAdmin() {
-  const box = $("#adminList");
-  box.innerHTML = `<div class="skeleton">Yuklanmoqda…</div>`;
-  try {
-    const pending = await API.adminPending();
-    if (pending.length === 0) { box.innerHTML = `<div class="skeleton">Kutayotgan ariza yo'q.</div>`; return; }
-    box.innerHTML = pending.map((u) => `
-      <div class="admin-card" data-uid="${u.id}">
-        <div class="admin-name">${escapeHtml(u.full_name || "—")}</div>
-        <div class="admin-phone">${escapeHtml(u.phone || "—")}</div>
-        <div class="admin-user">${u.username ? "@" + escapeHtml(u.username) : "username yo'q"} · ID ${u.telegram_id}</div>
-        <div class="admin-actions">
-          <button class="btn-approve" data-approve="${u.id}">✓ Tasdiqlash</button>
-          <button class="btn-reject" data-reject="${u.id}">✕ Rad etish</button>
-        </div>
-      </div>`).join("");
-    box.querySelectorAll("[data-approve]").forEach((btn) =>
-      btn.addEventListener("click", () => moderate(Number(btn.dataset.approve), "approve")));
-    box.querySelectorAll("[data-reject]").forEach((btn) =>
-      btn.addEventListener("click", () => moderate(Number(btn.dataset.reject), "reject")));
-  } catch (e) { box.innerHTML = `<div class="skeleton">Xatolik: ${escapeHtml(e.message)}</div>`; }
+/* Kutish / rad etilgan */
+.status-box {
+  text-align: center;
+  max-width: 340px;
+  animation: fade .3s ease;
 }
-async function moderate(userId, action) {
-  haptic("light");
-  try {
-    await API.adminModerate(userId, action);
-    toast(action === "approve" ? "Tasdiqlandi ✓" : "Rad etildi");
-    const card = $(`.admin-card[data-uid="${userId}"]`);
-    if (card) card.remove();
-    if ($("#adminList").children.length === 0)
-      $("#adminList").innerHTML = `<div class="skeleton">Kutayotgan ariza yo'q.</div>`;
-  } catch (e) { toast(e.message); }
+.status-icon {
+  font-size: 52px;
+  margin-bottom: 8px;
+}
+.status-icon.pending { filter: saturate(1.2); }
+.status-icon.rejected {
+  color: #ff6b6b;
+  width: 72px; height: 72px; line-height: 72px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: rgba(255,107,107,.12);
+  font-size: 34px;
+}
+.status-box h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+.status-box p {
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 22px;
 }
 
-// ---------- Actions ----------
-async function joinChallenge(id) {
-  haptic("light");
-  try {
-    await API.join(id);
-    state.joinedIds.add(id);
-    toast("Qo'shildingiz!");
-    await refreshMe();
-    renderChallenges(); renderHome();
-  } catch (e) { toast(e.message); }
+/* Admin arizalar */
+.admin-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 15px;
+  margin-bottom: 11px;
 }
-async function doCheckin(id) {
-  haptic("medium");
-  try {
-    const res = await API.checkin(id);
-    if (res.status === "ok") { haptic("heavy"); tg?.HapticFeedback?.notificationOccurred?.("success"); }
-    toast(res.message);
-    await refreshMe(); renderHome();
-  } catch (e) { toast(e.message); }
+.admin-name { font-weight: 600; font-size: 15px; }
+.admin-phone {
+  color: var(--flame-2);
+  font-size: 14px;
+  margin: 4px 0 3px;
+  font-family: 'Space Grotesk', sans-serif;
 }
-async function refreshMe() {
-  state.me = await API.me();
-  state.joinedIds = new Set(state.me.participations.map((p) => p.challenge_id));
-  $("#totalPoints").textContent = `${state.me.total_points} ball`;
+.admin-user { color: var(--text-dim); font-size: 12px; margin-bottom: 13px; }
+.admin-actions { display: flex; gap: 9px; }
+.btn-approve, .btn-reject {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: var(--r-sm);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
 }
-
-boot();
+.btn-approve { background: var(--ok); color: #04240f; }
+.btn-reject { background: var(--surface-2); color: #ff8080; box-shadow: inset 0 0 0 1.5px #ff808044; }
