@@ -1,5 +1,5 @@
-// Backend API manzili — o'zingiznikiga o'zgartiring (VPS yoki tunnel URL).
-const API_BASE = "https://YOUR-BACKEND-URL.com";
+// Backend API manzili
+const API_BASE = "https://intizom-bi0n.onrender.com";
 
 const tg = window.Telegram?.WebApp;
 
